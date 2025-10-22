@@ -22,6 +22,12 @@
 #include <QMenuBar>
 #include <QMenu>
 #include <QAction>
+#include <QLabel>
+#include <QSpinBox>
+#include <QComboBox>
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -32,6 +38,7 @@ MainWindow::MainWindow(QWidget *parent)
     , searchButton_(nullptr)
     , isDarkMode_(false)
     , themeToggleButton_(nullptr)
+    , fontSize_(12)
 {
     ui->setupUi(this);
     setupTable();
@@ -39,8 +46,9 @@ MainWindow::MainWindow(QWidget *parent)
     setupActions();
     setupSearchBar();
     setupThemeToggle();
-    initializeSampleBooks();
     setupStyles();
+    setupFontSettings();
+    initializeSampleBooks();
 }
 
 MainWindow::~MainWindow()
@@ -77,8 +85,8 @@ void MainWindow::setupTable()
     // 设置表格基本属性
     tableView_->setAlternatingRowColors(true);
     
-    // 将表格添加到中央布局
-    ui->centralLayout->addWidget(tableView_);
+    // 将表格设置为中央窗口部件
+    setCentralWidget(tableView_);
 }
 
 void MainWindow::refreshTable(const QVector<Book> &books)
@@ -99,124 +107,16 @@ void MainWindow::refreshTable(const QVector<Book> &books)
         model_->setItem(row, 9, new QStandardItem(b.available ? QStringLiteral("✅ 可借") : QStringLiteral("❌ 不可借")));
     }
     
-    // 更新状态栏信息
-    int totalBooks = books.size();
-    int availableBooks = 0;
-    int borrowedBooks = 0;
-    for (const auto &book : books) {
-        if (book.available) {
-            availableBooks++;
-        } else {
-            borrowedBooks++;
-        }
+    // 更新状态栏信息（只有在用户信息已设置时才调用）
+    if (!currentUser_.isEmpty()) {
+        updateStatusBar();
     }
-    
-    QString statusText = QStringLiteral("📊 总计: %1 本图书 | ✅ 可借: %2 本 | ❌ 已借出: %3 本")
-                        .arg(totalBooks).arg(availableBooks).arg(borrowedBooks);
-    statusBar()->showMessage(statusText);
 }
 
 void MainWindow::setupActions()
 {
-    // 创建左侧工具栏
-    auto *bar = addToolBar(QStringLiteral("操作"));
-    bar->setMovable(false);
-    bar->setFloatable(false);
-    bar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    bar->setOrientation(Qt::Vertical);  // 设置为垂直方向
-    bar->setAllowedAreas(Qt::LeftToolBarArea);  // 限制在左侧
-    
-    // 创建滚动区域来包装工具栏
-    QScrollArea *scrollArea = new QScrollArea();
-    scrollArea->setWidget(bar);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    scrollArea->setMaximumWidth(180);  // 限制最大宽度
-    scrollArea->setMinimumWidth(130);  // 设置最小宽度
-    
-    // 滚动区域样式由主题系统控制
-    
-    // 将滚动区域添加到左侧停靠区域
-    addDockWidget(Qt::LeftDockWidgetArea, createDockWidgetFromScrollArea(scrollArea));
-    
-    // 使用Unicode图标美化工具栏按钮
-    auto addAct = bar->addAction(QStringLiteral("📚 新增"));
-    auto editAct = bar->addAction(QStringLiteral("✏️ 编辑"));
-    auto delAct = bar->addAction(QStringLiteral("🗑️ 删除"));
-    bar->addSeparator();
-    auto borrowAct = bar->addAction(QStringLiteral("📖 借书"));
-    auto returnAct = bar->addAction(QStringLiteral("📤 还书"));
-    bar->addSeparator();
-    auto dueAct = bar->addAction(QStringLiteral("⏰ 到期(3天内)"));
-    auto sortAct = bar->addAction(QStringLiteral("📊 按借阅次数排序"));
-    bar->addSeparator();
-    auto openAct = bar->addAction(QStringLiteral("📂 打开"));
-    auto saveAct = bar->addAction(QStringLiteral("💾 保存"));
-    auto allAct = bar->addAction(QStringLiteral("📋 显示全部"));
-    bar->addSeparator();
-    auto switchAct = bar->addAction(QStringLiteral("🔄 切换模式"));
-    
-    // 新增实用功能按钮
-    bar->addSeparator();
-    auto filterCategoryAct = bar->addAction(QStringLiteral("📂 按分类筛选"));
-    auto filterLocationAct = bar->addAction(QStringLiteral("📍 按位置筛选"));
-    auto availableAct = bar->addAction(QStringLiteral("✅ 可借图书"));
-    auto borrowedAct = bar->addAction(QStringLiteral("📖 已借图书"));
-    auto topBorrowedAct = bar->addAction(QStringLiteral("🔥 热门图书"));
-    auto recentAct = bar->addAction(QStringLiteral("🆕 最新图书"));
-    auto expensiveAct = bar->addAction(QStringLiteral("💰 高价图书"));
-    auto cheapAct = bar->addAction(QStringLiteral("💸 低价图书"));
-    auto statisticsAct = bar->addAction(QStringLiteral("📊 统计信息"));
-    
-    bar->addSeparator();
-    auto sortNameAct = bar->addAction(QStringLiteral("🔤 按名称排序"));
-    auto sortCategoryAct = bar->addAction(QStringLiteral("📚 按分类排序"));
-    auto sortLocationAct = bar->addAction(QStringLiteral("📍 按位置排序"));
-    auto sortPriceAct = bar->addAction(QStringLiteral("💵 按价格排序"));
-    auto sortDateAct = bar->addAction(QStringLiteral("📅 按日期排序"));
-    auto sortBorrowAct = bar->addAction(QStringLiteral("📈 按借阅排序"));
-    
-    bar->addSeparator();
-    auto advancedSearchAct = bar->addAction(QStringLiteral("🔍 高级搜索"));
-    auto exportAct = bar->addAction(QStringLiteral("📤 导出数据"));
-    auto importAct = bar->addAction(QStringLiteral("📥 导入数据"));
-    auto backupAct = bar->addAction(QStringLiteral("💾 备份数据"));
-    auto restoreAct = bar->addAction(QStringLiteral("🔄 恢复数据"));
-
-    connect(addAct, &QAction::triggered, this, &MainWindow::onAdd);
-    connect(editAct, &QAction::triggered, this, &MainWindow::onEdit);
-    connect(delAct, &QAction::triggered, this, &MainWindow::onRemove);
-    connect(borrowAct, &QAction::triggered, this, &MainWindow::onBorrow);
-    connect(returnAct, &QAction::triggered, this, &MainWindow::onReturn);
-    connect(dueAct, &QAction::triggered, this, &MainWindow::onShowDue);
-    connect(sortAct, &QAction::triggered, this, &MainWindow::onSortByBorrow);
-    connect(openAct, &QAction::triggered, this, &MainWindow::onOpen);
-    connect(saveAct, &QAction::triggered, this, &MainWindow::onSave);
-    connect(allAct, &QAction::triggered, this, &MainWindow::onShowAll);
-    connect(switchAct, &QAction::triggered, this, &MainWindow::onSwitchMode);
-    
-    // 连接新增功能
-    connect(filterCategoryAct, &QAction::triggered, this, &MainWindow::onFilterByCategory);
-    connect(filterLocationAct, &QAction::triggered, this, &MainWindow::onFilterByLocation);
-    connect(availableAct, &QAction::triggered, this, &MainWindow::onShowAvailable);
-    connect(borrowedAct, &QAction::triggered, this, &MainWindow::onShowBorrowed);
-    connect(topBorrowedAct, &QAction::triggered, this, &MainWindow::onShowTopBorrowed);
-    connect(recentAct, &QAction::triggered, this, &MainWindow::onShowRecentlyAdded);
-    connect(expensiveAct, &QAction::triggered, this, &MainWindow::onShowExpensiveBooks);
-    connect(cheapAct, &QAction::triggered, this, &MainWindow::onShowCheapBooks);
-    connect(statisticsAct, &QAction::triggered, this, &MainWindow::onShowStatistics);
-    connect(sortNameAct, &QAction::triggered, this, &MainWindow::onSortByName);
-    connect(sortCategoryAct, &QAction::triggered, this, &MainWindow::onSortByCategory);
-    connect(sortLocationAct, &QAction::triggered, this, &MainWindow::onSortByLocation);
-    connect(sortPriceAct, &QAction::triggered, this, &MainWindow::onSortByPrice);
-    connect(sortDateAct, &QAction::triggered, this, &MainWindow::onSortByDate);
-    connect(sortBorrowAct, &QAction::triggered, this, &MainWindow::onSortByBorrowCount);
-    connect(advancedSearchAct, &QAction::triggered, this, &MainWindow::onAdvancedSearch);
-    connect(exportAct, &QAction::triggered, this, &MainWindow::onExportData);
-    connect(importAct, &QAction::triggered, this, &MainWindow::onImportData);
-    connect(backupAct, &QAction::triggered, this, &MainWindow::onBackupData);
-    connect(restoreAct, &QAction::triggered, this, &MainWindow::onRestoreData);
+    // 删除左侧工具栏，所有功能已整合到菜单栏中
+    // 这里只保留必要的初始化代码
 }
 
 void MainWindow::onAdd()
@@ -374,20 +274,23 @@ void MainWindow::onSearch()
 {
     if (!searchEdit_) return;
     
-    const QString name = searchEdit_->text().trimmed();
-    if (name.isEmpty()) {
-        QMessageBox::information(this, QStringLiteral("ℹ️ 提示"), QStringLiteral("请输入要搜索的图书名称"));
+    const QString keyword = searchEdit_->text().trimmed();
+    if (keyword.isEmpty()) {
+        QMessageBox::information(this, QStringLiteral("ℹ️ 提示"), QStringLiteral("请输入搜索关键词"));
         return;
     }
     
-    const Book *b = library_.findByName(name);
-    if (!b) {
+    // 使用统一的搜索功能，支持书名、分类、位置、索引号
+    QVector<Book> searchResults = library_.searchBooks(keyword);
+    
+    if (searchResults.isEmpty()) {
         QMessageBox::information(this, QStringLiteral("ℹ️ 未找到"), 
-                                QStringLiteral("没有找到名称为 \"%1\" 的图书").arg(name));
+                                QStringLiteral("没有找到包含 \"%1\" 的图书").arg(keyword));
         return;
     }
-    refreshTable(QVector<Book>{ *b });
-    statusBar()->showMessage(QStringLiteral("🔍 搜索到图书: %1").arg(b->name), 3000);
+    
+    refreshTable(searchResults);
+    statusBar()->showMessage(QStringLiteral("🔍 搜索到 %1 本相关图书").arg(searchResults.size()), 3000);
 }
 
 void MainWindow::onShowDue()
@@ -446,13 +349,14 @@ void MainWindow::setupStyles()
     // 应用默认主题（浅色模式）
     applyTheme(false);
     
-    // 设置窗口标题和图标
-    setWindowTitle(QStringLiteral("图书管理系统"));
+    // 设置窗口图标
     setWindowIcon(QIcon(":/icons/library.svg"));
     
     // 设置状态栏
     statusBar()->setMinimumHeight(28);
-    updateStatusBar();
+    
+    // 窗口标题将在updateUIForUserMode中设置
+    // updateStatusBar(); // 将在updateUIForUserMode中调用
 }
 
 // 用户模式管理方法
@@ -466,6 +370,7 @@ void MainWindow::setUserMode(bool isAdmin)
 void MainWindow::setCurrentUser(const QString &username)
 {
     currentUser_ = username;
+    // 确保状态栏正确显示用户信息
     updateStatusBar();
 }
 
@@ -523,14 +428,66 @@ void MainWindow::updateUIForUserMode()
             }
         }
     }
+    
+    // 根据用户模式调整界面样式
+    if (adminMode_) {
+        // 管理员模式：使用红色主题强调
+        QString adminMenuBarStyle = isDarkMode_ ? 
+            "QMenuBar { background-color: #FF3B30; color: white; }"
+            "QMenuBar::item { color: white; }"
+            "QMenuBar::item:selected { background-color: #E6342A; color: white; }" :
+            "QMenuBar { background-color: #FF3B30; color: white; }"
+            "QMenuBar::item { color: white; }"
+            "QMenuBar::item:selected { background-color: #E6342A; color: white; }";
+            
+        setStyleSheet(getThemeStyles(isDarkMode_) + 
+            "QMainWindow { border-left: 4px solid #FF3B30; }" + adminMenuBarStyle
+        );
+        
+        // 更新窗口标题
+        setWindowTitle(QStringLiteral("图书管理系统 - 管理员模式"));
+    } else {
+        // 读者模式：使用蓝色主题
+        QString readerMenuBarStyle = isDarkMode_ ? 
+            "QMenuBar { background-color: #007AFF; color: white; }"
+            "QMenuBar::item { color: white; }"
+            "QMenuBar::item:selected { background-color: #0051D5; color: white; }" :
+            "QMenuBar { background-color: #007AFF; color: white; }"
+            "QMenuBar::item { color: white; }"
+            "QMenuBar::item:selected { background-color: #0051D5; color: white; }";
+            
+        setStyleSheet(getThemeStyles(isDarkMode_) + 
+            "QMainWindow { border-left: 4px solid #007AFF; }" + readerMenuBarStyle
+        );
+        
+        // 更新窗口标题
+        setWindowTitle(QStringLiteral("图书管理系统 - 读者模式"));
+    }
+    
+    // 更新状态栏显示
+    updateStatusBar();
 }
 
 void MainWindow::updateStatusBar()
 {
     QString modeText = adminMode_ ? "管理员模式" : "读者模式";
     QString userText = currentUser_.isEmpty() ? "未登录" : currentUser_;
-    QString statusText = QStringLiteral("👤 用户: %1 | 🔐 模式: %2").arg(userText, modeText);
-    statusBar()->showMessage(statusText);
+    
+    // 获取当前图书统计信息
+    int totalBooks = library_.getTotalBooks();
+    int availableBooks = library_.getAvailableBooks();
+    int borrowedBooks = library_.getBorrowedBooks();
+    
+    // 在状态栏左侧显示图书统计信息
+    QString bookStats = QStringLiteral("📊 总计: %1 本 | ✅ 可借: %2 本 | ❌ 已借: %3 本")
+                       .arg(totalBooks).arg(availableBooks).arg(borrowedBooks);
+    
+    // 在状态栏右侧显示用户信息
+    QString userInfo = QStringLiteral("👤 %1 | 🔐 %2").arg(userText, modeText);
+    
+    // 在状态栏左侧显示用户信息和图书统计
+    QString combinedInfo = QStringLiteral("%1 | %2").arg(userInfo, bookStats);
+    statusBar()->showMessage(combinedInfo);
     
     // 确保状态栏有足够的高度显示内容
     statusBar()->setMinimumHeight(28);
@@ -542,18 +499,6 @@ void MainWindow::onSwitchMode()
     QMessageBox::information(this, "切换模式", "请重新启动程序以切换用户模式");
 }
 
-QDockWidget* MainWindow::createDockWidgetFromScrollArea(QScrollArea *scrollArea)
-{
-    QDockWidget *dockWidget = new QDockWidget("功能栏", this);
-    dockWidget->setWidget(scrollArea);
-    dockWidget->setFeatures(QDockWidget::NoDockWidgetFeatures);  // 禁用停靠功能
-    dockWidget->setTitleBarWidget(new QWidget());  // 隐藏标题栏
-    dockWidget->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    
-    // 停靠窗口样式由主题系统控制
-    
-    return dockWidget;
-}
 
 void MainWindow::setupSearchBar()
 {
@@ -565,7 +510,7 @@ void MainWindow::setupSearchBar()
     
     // 创建搜索输入框
     searchEdit_ = new QLineEdit();
-    searchEdit_->setPlaceholderText("🔍 搜索图书名称...");
+    searchEdit_->setPlaceholderText("🔍 搜索图书（支持书名、分类、位置、索引号）...");
     
     // 创建搜索按钮
     searchButton_ = new QPushButton("搜索");
@@ -676,6 +621,55 @@ QString MainWindow::getThemeStyles(bool isDark)
             "    min-height: 28px;"
             "    height: 28px;"
             "    line-height: 1.4;"
+            "}"
+            "QMenuBar {"
+            "    background-color: #2C2C2E;"
+            "    color: #FFFFFF;"
+            "    border-bottom: 1px solid #3A3A3C;"
+            "    font-size: 14px;"
+            "    font-family: 'Microsoft YaHei UI', 'PingFang SC', 'Hiragino Sans GB', 'WenQuanYi Micro Hei', sans-serif;"
+            "    padding: 4px 8px;"
+            "}"
+            "QMenuBar::item {"
+            "    background-color: transparent;"
+            "    color: #FFFFFF;"
+            "    padding: 6px 12px;"
+            "    border-radius: 6px;"
+            "    margin: 2px;"
+            "}"
+            "QMenuBar::item:selected {"
+            "    background-color: #3A3A3C;"
+            "    color: #007AFF;"
+            "}"
+            "QMenuBar::item:pressed {"
+            "    background-color: #48484A;"
+            "    color: #007AFF;"
+            "}"
+            "QMenu {"
+            "    background-color: #2C2C2E;"
+            "    color: #FFFFFF;"
+            "    border: 1px solid #3A3A3C;"
+            "    border-radius: 8px;"
+            "    padding: 4px;"
+            "    font-size: 14px;"
+            "    font-family: 'Microsoft YaHei UI', 'PingFang SC', 'Hiragino Sans GB', 'WenQuanYi Micro Hei', sans-serif;"
+            "}"
+            "QMenu::item {"
+            "    background-color: transparent;"
+            "    color: #FFFFFF;"
+            "    padding: 8px 16px;"
+            "    border-radius: 4px;"
+            "    margin: 1px;"
+            "    min-width: 120px;"
+            "}"
+            "QMenu::item:selected {"
+            "    background-color: #007AFF;"
+            "    color: #FFFFFF;"
+            "}"
+            "QMenu::separator {"
+            "    height: 1px;"
+            "    background-color: #3A3A3C;"
+            "    margin: 4px 8px;"
             "}"
             "QTableView {"
             "    background-color: #1C1C1E;"
@@ -938,55 +932,63 @@ void MainWindow::initializeSampleBooks()
         return;
     }
     
-    // 创建示例图书数据
+    // 创建丰富的示例图书数据
     QVector<Book> sampleBooks = {
-        // 计算机类图书
+        // 计算机科学类
         Book{"CS001", "C++程序设计教程", "仙林图书馆", "计算机科学", 5, 45.80, QDate(2023, 1, 15), QDate(), 12, true},
-        Book{"CS002", "数据结构与算法分析", "三牌楼图书馆", "计算机科学", 3, 68.50, QDate(2023, 2, 20), QDate(), 8, true},
-        Book{"CS003", "操作系统概念", "仙林图书馆", "计算机科学", 4, 89.00, QDate(2023, 3, 10), QDate(), 15, true},
-        Book{"CS004", "计算机网络", "三牌楼图书馆", "计算机科学", 6, 76.20, QDate(2023, 1, 25), QDate(), 9, true},
-        Book{"CS005", "数据库系统概论", "仙林图书馆", "计算机科学", 2, 92.50, QDate(2023, 4, 5), QDate(), 6, true},
+        Book{"CS002", "数据结构与算法分析", "三牌楼图书馆", "计算机科学", 3, 68.50, QDate(2023, 1, 20), QDate(), 18, true},
+        Book{"CS003", "操作系统概念", "仙林图书馆", "计算机科学", 4, 72.00, QDate(2023, 2, 5), QDate(), 15, true},
+        Book{"CS004", "计算机网络", "三牌楼图书馆", "计算机科学", 6, 58.30, QDate(2023, 2, 10), QDate(), 22, true},
+        Book{"CS005", "数据库系统概论", "仙林图书馆", "计算机科学", 4, 65.80, QDate(2023, 2, 15), QDate(), 16, true},
+        Book{"CS006", "人工智能导论", "仙林图书馆", "计算机科学", 2, 95.00, QDate(2023, 3, 1), QDate(2023, 12, 15), 8, false},
         
-        // 文学类图书
+        // 文学类
         Book{"LIT001", "红楼梦", "三牌楼图书馆", "文学", 8, 35.60, QDate(2023, 1, 10), QDate(), 25, true},
-        Book{"LIT002", "百年孤独", "仙林图书馆", "文学", 4, 42.80, QDate(2023, 2, 15), QDate(), 18, true},
-        Book{"LIT003", "活着", "三牌楼图书馆", "文学", 6, 28.90, QDate(2023, 3, 1), QDate(), 22, true},
-        Book{"LIT004", "平凡的世界", "仙林图书馆", "文学", 5, 55.00, QDate(2023, 1, 20), QDate(), 16, true},
-        Book{"LIT005", "围城", "三牌楼图书馆", "文学", 3, 38.50, QDate(2023, 2, 28), QDate(), 14, true},
+        Book{"LIT002", "百年孤独", "仙林图书馆", "文学", 6, 42.80, QDate(2023, 1, 18), QDate(), 20, true},
+        Book{"LIT003", "活着", "三牌楼图书馆", "文学", 5, 28.50, QDate(2023, 1, 25), QDate(), 22, true},
+        Book{"LIT004", "平凡的世界", "仙林图书馆", "文学", 7, 38.90, QDate(2023, 2, 1), QDate(), 19, true},
+        Book{"LIT005", "围城", "三牌楼图书馆", "文学", 4, 32.00, QDate(2023, 2, 8), QDate(), 14, true},
+        Book{"LIT006", "1984", "三牌楼图书馆", "文学", 3, 29.80, QDate(2023, 2, 12), QDate(2023, 12, 20), 11, false},
         
-        // 历史类图书
-        Book{"HIS001", "中国通史", "仙林图书馆", "历史", 4, 78.00, QDate(2023, 1, 5), QDate(), 11, true},
-        Book{"HIS002", "世界文明史", "三牌楼图书馆", "历史", 3, 85.50, QDate(2023, 3, 15), QDate(), 7, true},
-        Book{"HIS003", "明朝那些事儿", "仙林图书馆", "历史", 6, 48.80, QDate(2023, 2, 10), QDate(), 20, true},
-        Book{"HIS004", "人类简史", "三牌楼图书馆", "历史", 5, 65.20, QDate(2023, 4, 1), QDate(), 13, true},
+        // 历史类
+        Book{"HIS001", "中国通史", "仙林图书馆", "历史", 6, 55.60, QDate(2023, 1, 22), QDate(), 17, true},
+        Book{"HIS002", "世界文明史", "三牌楼图书馆", "历史", 4, 62.40, QDate(2023, 1, 28), QDate(), 13, true},
+        Book{"HIS003", "明朝那些事儿", "仙林图书馆", "历史", 5, 48.80, QDate(2023, 2, 3), QDate(), 20, true},
+        Book{"HIS004", "人类简史", "三牌楼图书馆", "历史", 3, 52.00, QDate(2023, 2, 18), QDate(), 9, true},
         
-        // 科学类图书
-        Book{"SCI001", "时间简史", "仙林图书馆", "科学", 3, 52.00, QDate(2023, 1, 30), QDate(), 9, true},
-        Book{"SCI002", "物种起源", "三牌楼图书馆", "科学", 2, 68.80, QDate(2023, 3, 20), QDate(), 5, true},
-        Book{"SCI003", "相对论", "仙林图书馆", "科学", 1, 75.50, QDate(2023, 2, 25), QDate(), 3, true},
-        Book{"SCI004", "量子力学原理", "三牌楼图书馆", "科学", 2, 88.00, QDate(2023, 4, 10), QDate(), 4, true},
+        // 科学类
+        Book{"SCI001", "时间简史", "仙林图书馆", "科学", 4, 45.20, QDate(2023, 1, 30), QDate(), 16, true},
+        Book{"SCI002", "物种起源", "三牌楼图书馆", "科学", 3, 38.60, QDate(2023, 2, 5), QDate(), 12, true},
+        Book{"SCI003", "相对论", "仙林图书馆", "科学", 2, 68.90, QDate(2023, 2, 12), QDate(), 3, true},
+        Book{"SCI004", "量子力学原理", "三牌楼图书馆", "科学", 2, 75.40, QDate(2023, 2, 20), QDate(), 4, true},
+        Book{"SCI005", "宇宙的奥秘", "三牌楼图书馆", "科学", 3, 42.30, QDate(2023, 3, 5), QDate(2023, 12, 10), 7, false},
         
-        // 外语类图书
+        // 外语类
         Book{"ENG001", "新概念英语", "仙林图书馆", "外语", 10, 32.50, QDate(2023, 1, 12), QDate(), 35, true},
-        Book{"ENG002", "托福词汇精选", "三牌楼图书馆", "外语", 8, 45.80, QDate(2023, 2, 18), QDate(), 28, true},
-        Book{"ENG003", "雅思考试指南", "仙林图书馆", "外语", 6, 58.20, QDate(2023, 3, 8), QDate(), 19, true},
-        Book{"ENG004", "商务英语", "三牌楼图书馆", "外语", 4, 42.00, QDate(2023, 1, 28), QDate(), 12, true},
+        Book{"ENG002", "托福词汇精选", "三牌楼图书馆", "外语", 8, 28.80, QDate(2023, 1, 20), QDate(), 28, true},
+        Book{"ENG003", "雅思考试指南", "仙林图书馆", "外语", 6, 35.60, QDate(2023, 2, 2), QDate(), 21, true},
+        Book{"ENG004", "商务英语", "三牌楼图书馆", "外语", 5, 41.20, QDate(2023, 2, 8), QDate(), 15, true},
+        Book{"ENG005", "英语语法大全", "仙林图书馆", "外语", 4, 26.90, QDate(2023, 2, 15), QDate(2023, 12, 5), 18, false},
         
-        // 艺术类图书
-        Book{"ART001", "西方美术史", "仙林图书馆", "艺术", 3, 72.50, QDate(2023, 2, 5), QDate(), 8, true},
-        Book{"ART002", "中国书法艺术", "三牌楼图书馆", "艺术", 2, 55.80, QDate(2023, 3, 12), QDate(), 6, true},
-        Book{"ART003", "音乐理论基础", "仙林图书馆", "艺术", 4, 48.00, QDate(2023, 1, 18), QDate(), 10, true},
+        // 艺术类
+        Book{"ART001", "西方美术史", "仙林图书馆", "艺术", 3, 48.50, QDate(2023, 2, 22), QDate(), 8, true},
+        Book{"ART002", "中国书法艺术", "三牌楼图书馆", "艺术", 4, 35.80, QDate(2023, 2, 25), QDate(), 6, true},
+        Book{"ART003", "音乐理论基础", "仙林图书馆", "艺术", 3, 42.60, QDate(2023, 3, 1), QDate(), 5, true},
         
-        // 哲学类图书
-        Book{"PHI001", "论语", "三牌楼图书馆", "哲学", 5, 25.80, QDate(2023, 1, 8), QDate(), 17, true},
-        Book{"PHI002", "道德经", "仙林图书馆", "哲学", 4, 22.50, QDate(2023, 2, 22), QDate(), 14, true},
-        Book{"PHI003", "苏菲的世界", "三牌楼图书馆", "哲学", 3, 38.80, QDate(2023, 3, 25), QDate(), 11, true},
+        // 哲学类
+        Book{"PHI001", "论语", "三牌楼图书馆", "哲学", 5, 25.40, QDate(2023, 2, 28), QDate(), 10, true},
+        Book{"PHI002", "道德经", "仙林图书馆", "哲学", 4, 22.50, QDate(2023, 3, 3), QDate(), 7, true},
+        Book{"PHI003", "苏菲的世界", "三牌楼图书馆", "哲学", 3, 38.70, QDate(2023, 3, 8), QDate(), 9, true},
         
-        // 一些已借出的图书
-        Book{"CS006", "人工智能导论", "仙林图书馆", "计算机科学", 2, 95.00, QDate(2023, 4, 15), QDate(2024, 1, 15), 3, false},
-        Book{"LIT006", "1984", "三牌楼图书馆", "文学", 3, 36.50, QDate(2023, 2, 8), QDate(2024, 1, 20), 7, false},
-        Book{"ENG005", "英语语法大全", "仙林图书馆", "外语", 5, 52.80, QDate(2023, 3, 18), QDate(2024, 1, 25), 9, false},
-        Book{"SCI005", "宇宙的奥秘", "三牌楼图书馆", "科学", 2, 68.00, QDate(2023, 1, 22), QDate(2024, 1, 30), 5, false}
+        // 经济管理类
+        Book{"ECO001", "经济学原理", "仙林图书馆", "经济", 4, 68.90, QDate(2023, 3, 10), QDate(), 12, true},
+        Book{"ECO002", "管理学基础", "三牌楼图书馆", "管理", 5, 55.60, QDate(2023, 3, 12), QDate(), 14, true},
+        Book{"ECO003", "市场营销学", "仙林图书馆", "经济", 3, 62.30, QDate(2023, 3, 15), QDate(), 8, true},
+        
+        // 工程技术类
+        Book{"ENG001", "机械设计基础", "三牌楼图书馆", "工程", 4, 78.50, QDate(2023, 3, 18), QDate(), 6, true},
+        Book{"ENG002", "电子技术基础", "仙林图书馆", "工程", 3, 72.80, QDate(2023, 3, 20), QDate(), 9, true},
+        Book{"ENG003", "材料科学基础", "三牌楼图书馆", "工程", 2, 85.60, QDate(2023, 3, 22), QDate(), 4, true}
     };
     
     // 添加示例图书到图书馆
@@ -998,7 +1000,7 @@ void MainWindow::initializeSampleBooks()
     // 刷新表格显示
     refreshTable(library_.getAll());
     
-    // 更新状态栏
+    // 更新状态栏（这里不显示用户信息，因为用户还没有登录）
     statusBar()->showMessage(QStringLiteral("📚 已加载 %1 本示例图书").arg(sampleBooks.size()), 3000);
 }
 
@@ -1006,9 +1008,10 @@ void MainWindow::setupMenuBar()
 {
     // 创建菜单栏
     menuBar_ = menuBar();
+    
+    // 基础菜单栏样式（将在updateUIForUserMode中根据模式调整）
     menuBar_->setStyleSheet(
         "QMenuBar {"
-        "    background-color: #F8F9FA;"
         "    color: #1C1C1E;"
         "    border-bottom: 1px solid #E5E5EA;"
         "    font-size: 14px;"
@@ -1088,8 +1091,6 @@ void MainWindow::setupMenuBar()
     QAction *showExpensiveAction = queryMenu_->addAction("💰 高价图书");
     QAction *showCheapAction = queryMenu_->addAction("💸 低价图书");
     QAction *showDueAction = queryMenu_->addAction("⏰ 到期提醒");
-    queryMenu_->addSeparator();
-    QAction *advancedSearchAction = queryMenu_->addAction("🔍 高级搜索");
     
     // 连接信号
     connect(searchAction, &QAction::triggered, this, &MainWindow::onSearch);
@@ -1102,7 +1103,6 @@ void MainWindow::setupMenuBar()
     connect(showExpensiveAction, &QAction::triggered, this, &MainWindow::onShowExpensiveBooks);
     connect(showCheapAction, &QAction::triggered, this, &MainWindow::onShowCheapBooks);
     connect(showDueAction, &QAction::triggered, this, &MainWindow::onShowDue);
-    connect(advancedSearchAction, &QAction::triggered, this, &MainWindow::onAdvancedSearch);
     
     // 3. 排序功能菜单
     sortMenu_ = menuBar_->addMenu("📊 排序功能");
@@ -1150,12 +1150,14 @@ void MainWindow::setupMenuBar()
     
     QAction *switchModeAction = systemMenu_->addAction("🔄 切换模式");
     QAction *toggleThemeAction = systemMenu_->addAction("🌙 切换主题");
+    QAction *fontSettingsAction = systemMenu_->addAction("🔤 字体设置");
     systemMenu_->addSeparator();
     QAction *aboutAction = systemMenu_->addAction("ℹ️ 关于系统");
     
     // 连接信号
     connect(switchModeAction, &QAction::triggered, this, &MainWindow::onSwitchMode);
     connect(toggleThemeAction, &QAction::triggered, this, &MainWindow::toggleTheme);
+    connect(fontSettingsAction, &QAction::triggered, this, &MainWindow::onFontSettings);
     connect(aboutAction, &QAction::triggered, this, [this]() {
         QMessageBox::about(this, "关于图书管理系统", 
                           "📚 图书管理系统 v2.0\n\n"
@@ -1349,15 +1351,9 @@ void MainWindow::onSortByBorrowCount()
 
 void MainWindow::onAdvancedSearch()
 {
-    bool ok;
-    QString keyword = QInputDialog::getText(this, QStringLiteral("🔍 高级搜索"), 
-                                           QStringLiteral("请输入搜索关键词（支持书名、分类、位置、索引号）:"), 
-                                           QLineEdit::Normal, "", &ok);
-    if (ok && !keyword.trimmed().isEmpty()) {
-        QVector<Book> searchResults = library_.searchBooks(keyword.trimmed());
-        refreshTable(searchResults);
-        statusBar()->showMessage(QStringLiteral("🔍 搜索到 %1 本相关图书").arg(searchResults.size()), 3000);
-    }
+    // 高级搜索功能已整合到普通搜索中
+    // 直接调用普通搜索功能
+    onSearch();
 }
 
 void MainWindow::onExportData()
@@ -1421,4 +1417,100 @@ void MainWindow::onRestoreData()
             }
         }
     }
+}
+
+void MainWindow::setupFontSettings()
+{
+    // 初始化字体设置
+    currentFont_ = QFont("Microsoft YaHei UI", fontSize_);
+    applyFontSettings();
+}
+
+void MainWindow::applyFontSettings()
+{
+    // 应用字体设置到整个应用程序
+    QApplication::setFont(currentFont_);
+    
+    // 更新状态栏字体（避免在初始化时调用）
+    if (statusBar() && statusBar()->isVisible()) {
+        statusBar()->setStyleSheet(QString("QStatusBar { font-size: %1px; }").arg(fontSize_));
+    }
+}
+
+void MainWindow::onFontSettings()
+{
+    QDialog dialog(this);
+    dialog.setWindowTitle("字体设置");
+    dialog.setFixedSize(400, 200);
+    
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+    
+    // 字体族选择
+    QHBoxLayout *fontFamilyLayout = new QHBoxLayout();
+    QLabel *fontFamilyLabel = new QLabel("字体族:");
+    QComboBox *fontFamilyCombo = new QComboBox();
+    fontFamilyCombo->addItems({"Microsoft YaHei UI", "SimHei", "SimSun", "Arial", "Times New Roman", "Courier New"});
+    fontFamilyCombo->setCurrentText(currentFont_.family());
+    fontFamilyLayout->addWidget(fontFamilyLabel);
+    fontFamilyLayout->addWidget(fontFamilyCombo);
+    
+    // 字体大小选择
+    QHBoxLayout *fontSizeLayout = new QHBoxLayout();
+    QLabel *fontSizeLabel = new QLabel("字体大小:");
+    QSpinBox *fontSizeSpin = new QSpinBox();
+    fontSizeSpin->setRange(8, 24);
+    fontSizeSpin->setValue(fontSize_);
+    fontSizeLayout->addWidget(fontSizeLabel);
+    fontSizeLayout->addWidget(fontSizeSpin);
+    
+    // 预览区域
+    QLabel *previewLabel = new QLabel("字体预览: 图书管理系统");
+    previewLabel->setAlignment(Qt::AlignCenter);
+    previewLabel->setStyleSheet("QLabel { border: 1px solid #ccc; padding: 10px; }");
+    
+    // 按钮
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QPushButton *okButton = new QPushButton("确定");
+    QPushButton *cancelButton = new QPushButton("取消");
+    buttonLayout->addWidget(okButton);
+    buttonLayout->addWidget(cancelButton);
+    
+    layout->addLayout(fontFamilyLayout);
+    layout->addLayout(fontSizeLayout);
+    layout->addWidget(previewLabel);
+    layout->addLayout(buttonLayout);
+    
+    // 实时预览
+    auto updatePreview = [=]() {
+        QFont previewFont(fontFamilyCombo->currentText(), fontSizeSpin->value());
+        previewLabel->setFont(previewFont);
+    };
+    
+    connect(fontFamilyCombo, static_cast<void(QComboBox::*)(const QString &)>(&QComboBox::currentTextChanged), updatePreview);
+    connect(fontSizeSpin, static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged), updatePreview);
+    updatePreview();
+    
+    connect(okButton, &QPushButton::clicked, [&]() {
+        currentFont_ = QFont(fontFamilyCombo->currentText(), fontSizeSpin->value());
+        fontSize_ = fontSizeSpin->value();
+        applyFontSettings();
+        dialog.accept();
+    });
+    
+    connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+    
+    dialog.exec();
+}
+
+void MainWindow::onFontSizeChanged(int size)
+{
+    fontSize_ = size;
+    currentFont_.setPointSize(size);
+    applyFontSettings();
+}
+
+void MainWindow::onFontFamilyChanged(const QString &family)
+{
+    currentFont_.setFamily(family);
+    applyFontSettings();
 }

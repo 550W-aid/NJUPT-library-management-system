@@ -57,6 +57,10 @@ private:
     QMenu *sortMenu_;
     QMenu *dataMenu_;
     QMenu *systemMenu_;
+    
+    // 字体相关
+    QFont currentFont_;
+    int fontSize_;
 
 private:
     void setupTable();
@@ -73,6 +77,8 @@ private:
     QString getThemeStyles(bool isDark);
     void initializeSampleBooks();
     void setupMenuBar();
+    void setupFontSettings();
+    void applyFontSettings();
 
 private slots:
     void onAdd();
@@ -109,5 +115,8 @@ private slots:
     void onImportData();
     void onBackupData();
     void onRestoreData();
+    void onFontSettings();
+    void onFontSizeChanged(int size);
+    void onFontFamilyChanged(const QString &family);
 };
 #endif // MAINWINDOW_H
