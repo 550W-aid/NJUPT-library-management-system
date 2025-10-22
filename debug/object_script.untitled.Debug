@@ -1,0 +1,12 @@
+debug/main.o
+debug/mainwindow.o
+debug/librarymanager.o
+debug/bookdialog.o
+debug/splashscreen.o
+debug/logindialog.o
+debug/qrc_resources.o
+debug/moc_mainwindow.o
+debug/moc_librarymanager.o
+debug/moc_bookdialog.o
+debug/moc_splashscreen.o
+debug/moc_logindialog.o
